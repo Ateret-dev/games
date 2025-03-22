@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <title>משחק Phaser מותאם ל-iPhone</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+</head>
+<body>
+<script>
+    const config = {
+        type: Phaser.AUTO,
+        scale: {
+            mode: Phaser.Scale.FIT,
+            autoCenter: Phaser.Scale.CENTER_BOTH,
+            width: 375,
+            height: 667
+        },
+        physics: {
+            default: 'arcade',
+            arcade: {
+                gravity: { y: 600 },
+                debug: false
+            }
+        },
+        scene: {
+            preload: preload,
+            create: create,
+            update: update
+        }
+    };
+
+    const game = new Phaser.Game(config);
+    let player;
+    let platforms;
+    let pointer;
+
+    function preload() {
+        this.load.image('sky', 'https://labs.phaser.io/assets/skies/gradient7.png');
+        this.load.image('ground', 'https://labs.phaser.io/assets/platforms/platform.png');
+        this.load.image('star', 'https://labs.phaser.io/assets/demoscene/star2.png');
+    }
+
+    function create() {
+        this.add.image(187.5, 333.5, 'sky').setDisplaySize(375, 667);
+
+        platforms = this.physics.add.staticGroup();
+        platforms.create(187.5, 650, 'ground').setScale(2).refreshBody();
+
+        player = this.physics.add.sprite(187.5, 500, 'star');
+        player.setBounce(0.2);
+        player.setCollideWorldBounds(true);
+
+        this.physics.add.collider(player, platforms);
+
+        pointer = this.input.activePointer;
+    }
+
+    function update() {
+        if (pointer.isDown) {
+            if (pointer.x < player.x - 10) {
+                player.setVelocityX(-200);
+            } else if (pointer.x > player.x + 10) {
+                player.setVelocityX(200);
+            } else {
+                player.setVelocityX(0);
+            }
+
+            if (pointer.y < player.y - 30 && player.body.touching.down) {
+                player.setVelocityY(-400);
+            }
+        } else {
+            player.setVelocityX(0);
+        }
+    }
+</script>
+</body>
+</html>
