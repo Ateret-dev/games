@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+  <meta charset="UTF-8">
+  <title>משחק אופנה Phaser.js</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <style>
+    body { margin: 0; padding: 0; overflow: hidden; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+</head>
+<body>
+<script>
+const config = {
+  type: Phaser.AUTO,
+  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: 375, height: 667 },
+  backgroundColor: '#ffe4e1',
+  scene: { preload, create }
+};
+
+const game = new Phaser.Game(config);
+let doll, scoreText, score = 0;
+
+function preload() {
+  // בובת בסיס
+  this.load.image('doll', 'https://i.imgur.com/71Z0NH8.png');
+
+  // פריטים יומיומיים
+  this.load.image('dress1', 'https://i.imgur.com/v78f4q9.png');
+  this.load.image('hat1', 'https://i.imgur.com/xaFHe7h.png');
+
+  // פריטי מסיבה
+  this.load.image('dress2', 'https://i.imgur.com/Qzqw8m9.png');
+  this.load.image('hat2', 'https://i.imgur.com/vDblmxz.png');
+
+  // פריטי חורף
+  this.load.image('coat', 'https://i.imgur.com/FJnwyIw.png');
+  this.load.image('hat3', 'https://i.imgur.com/n30P1qd.png');
+}
+
+function create() {
+  doll = this.add.image(187.5, 330, 'doll').setScale(0.6);
+
+  // שלב נוכחי
+  let currentStage = 1;
+
+  scoreText = this.add.text(187.5, 620, 'Score: 0', { font: '20px Arial', color: '#000' }).setOrigin(0.5);
+
+  const stages = {
+    1: [{key:'dress1', x:80,y:550}, {key:'hat1', x:290,y:550}],
+    2: [{key:'dress2', x:80,y:550}, {key:'hat2', x:290,y:550}],
+    3: [{key:'coat', x:80,y:550}, {key:'hat3', x:290,y:550}]
+  };
+
+  function setupStage(stage) {
+    this.add.text(187.5, 50, `Stage ${stage}`, { font: '24px Arial', color: '#000' }).setOrigin(0.5);
+    stages[stage].forEach(item => {
+      let sprite = this.add.sprite(item.x, item.y, item.key).setScale(0.4).setInteractive({ draggable: true });
+      sprite.on('drag', (pointer, dragX, dragY) => {
+        sprite.x = dragX; sprite.y = dragY;
+      });
+      sprite.on('dragend', () => {
+        if (Phaser.Math.Distance.Between(sprite.x, sprite.y, doll.x, doll.y) < 150) {
+          sprite.x = doll.x; sprite.y = doll.y;
+          score += 50;
+          scoreText.setText(`Score: ${score}`);
+          sprite.disableInteractive();
+        } else {
+          sprite.x = item.x; sprite.y = item.y;
+        }
+      });
+    });
+
+    this.time.delayedCall(8000, () => {
+      this.children.removeAll();  // מנקה את הבמה לשלב הבא
+      doll = this.add.image(187.5, 330, 'doll').setScale(0.6);
+      scoreText = this.add.text(187.5, 620, `Score: ${score}`, { font: '20px Arial', color: '#000' }).setOrigin(0.5);
+      if (stage < 3) setupStage.call(this, stage+1);
+      else {
+        this.add.text(187.5, 330, `Final Score:\n${score}`, { font: '26px Arial', color: '#000' }).setOrigin(0.5);
+      }
+    });
+  }
+
+  setupStage.call(this, currentStage);
+}
+</script>
+</body>
+</html>
