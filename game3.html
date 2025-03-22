@@ -1,0 +1,320 @@
+Complete HTML Code for the Phaser Dress-Up Game
+
+Below is a single HTML file containing the full game code (including Phaser 3 via CDN and all scripts). You can save this as an .html file and open it in a browser. It will load external images (free assets) and run the fashion dress-up game with three stages as specified:
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Fashion Dress-Up Game</title>
+  <!-- Include Phaser 3 library from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
+  <style>
+    body { margin: 0; padding: 0; background: #000; }  /* black background while loading */
+    canvas { display: block; margin: 0 auto; }
+  </style>
+</head>
+<body>
+
+<script>
+// Global score tracker
+let totalScore = 0;
+
+// Stage 1 Scene: Daily Casual Outfit
+class Stage1Scene extends Phaser.Scene {
+  constructor() { super({ key: 'Stage1' }); }
+  preload() {
+    // Allow cross-domain image loading
+    this.load.setCrossOrigin('anonymous');
+    // Load base doll image (includes doll and some example dresses around it)
+    this.load.image('doll', 'https://cdn.pixabay.com/photo/2020/09/24/20/39/clip-art-5599803_1280.png');
+    // Load a composite image containing various clothing items (openclipart)
+    this.load.image('clothes', 'https://openclipart.org/image/2000px/221702');
+    // Load fancy dresses for later stages (party gowns)
+    this.load.image('redGown', 'https://cdn.pixabay.com/photo/2020/09/20/12/19/dress-5586955_1280.png');
+    this.load.image('whiteGown', 'https://cdn.pixabay.com/photo/2020/09/19/13/42/dress-5584496_1280.png');
+    // Load a winter coat image
+    this.load.image('redCoat', 'https://openclipart.org/image/2000px/234422');
+  }
+
+  create() {
+    // Background for stage 1 (sky blue for a daytime casual theme)
+    this.add.rectangle(400, 300, 800, 600, 0x87CEEB);
+    // Stage title text
+    this.add.text(400, 30, "Stage 1: Daily Casual Outfit", { font: "24px Arial", fill: "#000" }).setOrigin(0.5);
+
+    // Add the doll sprite and crop out the extra parts (only show the doll herself)
+    let doll = this.add.sprite(400, 340, 'doll').setOrigin(0.5);
+    // Scale the doll to fit nicely on the canvas
+    doll.displayHeight = 500;
+    doll.scaleX = doll.scaleY;
+    // Crop the doll image to hide the surrounding outfits in the source image
+    doll.setCrop(380, 0, 388, 993);
+
+    // Extract individual clothing items from the composite image by drawing to a render texture
+    const extractItem = (key, cropX, cropY, cropW, cropH) => {
+      let rt = this.add.renderTexture(0, 0, cropW, cropH);
+      rt.draw('clothes', -cropX, -cropY);
+      // Add as new texture using the rendered canvas
+      this.textures.addBase64(key, rt.texture.canvas.toDataURL());
+      rt.destroy();
+    };
+    // Extract needed items: blue casual dress, sun hat, flip-flop sandal, and boots from composite
+    extractItem('blueDress', 0, 0, 200, 350);
+    extractItem('sunHat', 0, 380, 150, 150);
+    extractItem('flipFlop', 0, 480, 120, 150);
+    extractItem('whiteBoot', 180, 380, 130, 150);
+    extractItem('brownBoot', 350, 380, 130, 150);
+
+    // Helper to create a draggable sprite for an item
+    const createItem = (key, x, y, category, isCorrect, scale=1) => {
+      let spr = this.add.sprite(x, y, key).setInteractive({ draggable: true });
+      spr.setScale(scale);
+      spr.category = category;
+      spr.correct = isCorrect;
+      spr.onDoll = false;
+      spr.homeX = x;
+      spr.homeY = y;
+      return spr;
+    };
+
+    // Create and position clothing items for Stage 1
+    let items = [];
+    // Correct items for casual stage
+    items.push(createItem('blueDress', 100, 450, 'outfit', true, 1.5));   // casual dress
+    items.push(createItem('sunHat', 100, 100, 'hat', true, 1.2));         // sun hat
+    items.push(createItem('flipFlop', 700, 500, 'shoes', true, 1.2));     // flip-flop sandals
+    // Incorrect/decoy items (not fitting casual theme)
+    items.push(createItem('redGown', 700, 100, 'outfit', false, 0.8));    // fancy gown (wrong for casual)
+    items.push(createItem('whiteBoot', 700, 400, 'shoes', false, 1.2));   // winter boot (wrong for casual)
+
+    // Enable dragging behavior
+    this.input.on('dragstart', (pointer, gameObject) => {
+      gameObject.depth = 1;  // bring to top
+    });
+    this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
+      gameObject.x = dragX;
+      gameObject.y = dragY;
+    });
+    this.input.on('dragend', (pointer, gameObject) => {
+      // Check if dropped near the doll
+      let dx = gameObject.x - doll.x;
+      let dy = gameObject.y - doll.y;
+      let dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < doll.displayHeight * 0.5) {
+        // Snap onto doll based on category
+        if (gameObject.category === 'hat') {
+          gameObject.x = doll.x;
+          gameObject.y = doll.y - doll.displayHeight * 0.45;
+        } else if (gameObject.category === 'outfit') {
+          gameObject.x = doll.x;
+          gameObject.y = doll.y;
+        } else if (gameObject.category === 'shoes') {
+          gameObject.x = doll.x;
+          gameObject.y = doll.y + doll.displayHeight * 0.4;
+        }
+        gameObject.onDoll = true;
+      } else {
+        // Not on doll - return to original position
+        gameObject.x = gameObject.homeX;
+        gameObject.y = gameObject.homeY;
+        gameObject.onDoll = false;
+      }
+    });
+
+    // "Next" button to proceed to Stage 2
+    this.add.text(700, 30, "Next >", { font: "20px Arial", fill: "#000", backgroundColor: "#fff" })
+      .setOrigin(0.5).setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => {
+        // Calculate stage score
+        let stageScore = 0;
+        items.forEach(item => {
+          if (item.correct && item.onDoll) stageScore += 50;
+        });
+        totalScore += stageScore;
+        this.scene.start('Stage2');
+      });
+  }
+}
+
+// Stage 2 Scene: Party Outfit
+class Stage2Scene extends Phaser.Scene {
+  constructor() { super({ key: 'Stage2' }); }
+  create() {
+    // Background for stage 2 (pink/purple for party vibe)
+    this.add.rectangle(400, 300, 800, 600, 0xFFC0CB);
+    this.add.text(400, 30, "Stage 2: Party Outfit", { font: "24px Arial", fill: "#000" }).setOrigin(0.5);
+
+    // Add doll again (reuse same image and cropping)
+    let doll = this.add.sprite(400, 340, 'doll').setOrigin(0.5);
+    doll.displayHeight = 500;
+    doll.scaleX = doll.scaleY;
+    doll.setCrop(380, 0, 388, 993);
+
+    // Create clothing items for party stage
+    let items = [];
+    // Correct item(s) for party stage
+    let gown = this.add.sprite(100, 450, 'redGown').setInteractive({ draggable: true });
+    gown.setScale(0.8);
+    gown.category = 'outfit'; gown.correct = true; gown.onDoll = false; gown.homeX = 100; gown.homeY = 450;
+    items.push(gown);
+    // Decoy items
+    let whiteGown = this.add.sprite(100, 100, 'whiteGown').setInteractive({ draggable: true });
+    whiteGown.setScale(0.8);
+    whiteGown.category = 'outfit'; whiteGown.correct = false; whiteGown.onDoll = false; whiteGown.homeX = 100; whiteGown.homeY = 100;
+    items.push(whiteGown);
+    let casualDress = this.add.sprite(700, 100, 'blueDress').setInteractive({ draggable: true });
+    casualDress.setScale(1.5);
+    casualDress.category = 'outfit'; casualDress.correct = false; casualDress.onDoll = false; casualDress.homeX = 700; casualDress.homeY = 100;
+    items.push(casualDress);
+    let boots = this.add.sprite(700, 450, 'brownBoot').setInteractive({ draggable: true });
+    boots.setScale(1.2);
+    boots.category = 'shoes'; boots.correct = false; boots.onDoll = false; boots.homeX = 700; boots.homeY = 450;
+    items.push(boots);
+
+    // Enable dragging
+    items.forEach(item => this.input.setDraggable(item));
+    this.input.on('dragstart', (pointer, gameObject) => { gameObject.depth = 1; });
+    this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
+      gameObject.x = dragX;
+      gameObject.y = dragY;
+    });
+    this.input.on('dragend', (pointer, gameObject) => {
+      let dx = gameObject.x - doll.x;
+      let dy = gameObject.y - doll.y;
+      let dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < doll.displayHeight * 0.5) {
+        if (gameObject.category === 'hat') {
+          gameObject.x = doll.x;
+          gameObject.y = doll.y - doll.displayHeight * 0.45;
+        } else if (gameObject.category === 'outfit') {
+          gameObject.x = doll.x;
+          gameObject.y = doll.y;
+        } else if (gameObject.category === 'shoes') {
+          gameObject.x = doll.x;
+          gameObject.y = doll.y + doll.displayHeight * 0.4;
+        }
+        gameObject.onDoll = true;
+      } else {
+        gameObject.x = gameObject.homeX;
+        gameObject.y = gameObject.homeY;
+        gameObject.onDoll = false;
+      }
+    });
+
+    // Next button to Stage 3
+    this.add.text(700, 30, "Next >", { font: "20px Arial", fill: "#000", backgroundColor: "#fff" })
+      .setOrigin(0.5).setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => {
+        let stageScore = 0;
+        items.forEach(item => {
+          if (item.correct && item.onDoll) stageScore += 50;
+        });
+        totalScore += stageScore;
+        this.scene.start('Stage3');
+      });
+  }
+}
+
+// Stage 3 Scene: Winter Outfit
+class Stage3Scene extends Phaser.Scene {
+  constructor() { super({ key: 'Stage3' }); }
+  create() {
+    // Background for stage 3 (light blue for winter theme)
+    this.add.rectangle(400, 300, 800, 600, 0xADD8E6);
+    this.add.text(400, 30, "Stage 3: Winter Outfit", { font: "24px Arial", fill: "#000" }).setOrigin(0.5);
+
+    // Doll sprite
+    let doll = this.add.sprite(400, 340, 'doll').setOrigin(0.5);
+    doll.displayHeight = 500;
+    doll.scaleX = doll.scaleY;
+    doll.setCrop(380, 0, 388, 993);
+
+    // Clothing items for winter stage
+    let items = [];
+    // Correct winter items
+    let coat = this.add.sprite(100, 450, 'redCoat').setInteractive({ draggable: true });
+    coat.setScale(0.8);
+    coat.category = 'outfit'; coat.correct = true; coat.onDoll = false; coat.homeX = 100; coat.homeY = 450;
+    items.push(coat);
+    let winterBoot = this.add.sprite(100, 100, 'whiteBoot').setInteractive({ draggable: true });
+    winterBoot.setScale(1.2);
+    winterBoot.category = 'shoes'; winterBoot.correct = true; winterBoot.onDoll = false; winterBoot.homeX = 100; winterBoot.homeY = 100;
+    items.push(winterBoot);
+    // Decoy items
+    let summerHat = this.add.sprite(700, 100, 'sunHat').setInteractive({ draggable: true });
+    summerHat.setScale(1.2);
+    summerHat.category = 'hat'; summerHat.correct = false; summerHat.onDoll = false; summerHat.homeX = 700; summerHat.homeY = 100;
+    items.push(summerHat);
+    let partyDress = this.add.sprite(700, 450, 'redGown').setInteractive({ draggable: true });
+    partyDress.setScale(0.8);
+    partyDress.category = 'outfit'; partyDress.correct = false; partyDress.onDoll = false; partyDress.homeX = 700; partyDress.homeY = 450;
+    items.push(partyDress);
+
+    items.forEach(item => this.input.setDraggable(item));
+    this.input.on('dragstart', (pointer, gameObject) => { gameObject.depth = 1; });
+    this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
+      gameObject.x = dragX;
+      gameObject.y = dragY;
+    });
+    this.input.on('dragend', (pointer, gameObject) => {
+      let dx = gameObject.x - doll.x;
+      let dy = gameObject.y - doll.y;
+      let dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < doll.displayHeight * 0.5) {
+        if (gameObject.category === 'hat') {
+          gameObject.x = doll.x;
+          gameObject.y = doll.y - doll.displayHeight * 0.45;
+        } else if (gameObject.category === 'outfit') {
+          gameObject.x = doll.x;
+          gameObject.y = doll.y;
+        } else if (gameObject.category === 'shoes') {
+          gameObject.x = doll.x;
+          gameObject.y = doll.y + doll.displayHeight * 0.4;
+        }
+        gameObject.onDoll = true;
+      } else {
+        gameObject.x = gameObject.homeX;
+        gameObject.y = gameObject.homeY;
+        gameObject.onDoll = false;
+      }
+    });
+
+    // Finish button to show final score
+    this.add.text(700, 30, "Finish", { font: "20px Arial", fill: "#000", backgroundColor: "#fff" })
+      .setOrigin(0.5).setInteractive({ useHandCursor: true })
+      .on('pointerdown', () => {
+        let stageScore = 0;
+        items.forEach(item => {
+          if (item.correct && item.onDoll) stageScore += 50;
+        });
+        totalScore += stageScore;
+        this.scene.start('FinalScene');
+      });
+  }
+}
+
+// Final Scene: Show total score
+class FinalScene extends Phaser.Scene {
+  constructor() { super({ key: 'FinalScene' }); }
+  create() {
+    this.add.rectangle(400, 300, 800, 600, 0xE6E6FA);
+    this.add.text(400, 250, "All Stages Complete!", { font: "30px Arial", fill: "#000" }).setOrigin(0.5);
+    this.add.text(400, 320, "Your Total Score: " + totalScore, { font: "26px Arial", fill: "#000" }).setOrigin(0.5);
+    this.add.text(400, 400, "Thanks for playing!", { font: "20px Arial", fill: "#000" }).setOrigin(0.5);
+  }
+}
+
+// Game configuration and start
+const config = {
+  type: Phaser.AUTO,
+  width: 800,
+  height: 600,
+  scene: [ Stage1Scene, Stage2Scene, Stage3Scene, FinalScene ],
+  backgroundColor: "#000000"
+};
+new Phaser.Game(config);
+</script>
+
+</body>
+</html>
