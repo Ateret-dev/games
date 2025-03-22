@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <title>משחק הלבשה</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0,user-scalable=no">
+    <style>
+        body {
+            margin:0;
+            padding:0;
+            overflow:hidden;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3/dist/phaser.min.js"></script>
+</head>
+<body>
+<script>
+    const config = {
+        type: Phaser.AUTO,
+        scale: {
+            mode: Phaser.Scale.FIT,
+            autoCenter: Phaser.Scale.CENTER_BOTH,
+            width: 375,
+            height: 667
+        },
+        scene: { preload, create }
+    };
+
+    const game = new Phaser.Game(config);
+
+    function preload() {
+        // דמות בסיסית
+        this.load.image('girl', 'https://i.imgur.com/vM3LjWv.png');
+
+        // פריטי לבוש
+        this.load.image('dress1', 'https://i.imgur.com/dHuPHnq.png');
+        this.load.image('dress2', 'https://i.imgur.com/KYAZsq7.png');
+        this.load.image('hat', 'https://i.imgur.com/uMyC6ae.png');
+    }
+
+    function create() {
+        this.add.image(187.5, 333.5, 'girl').setScale(0.5);
+
+        // יצירת פריטי לבוש שניתן לגרור
+        let dress1 = this.add.image(80, 570, 'dress1').setScale(0.3).setInteractive({ draggable: true });
+        let dress2 = this.add.image(187.5, 570, 'dress2').setScale(0.3).setInteractive({ draggable: true });
+        let hat = this.add.image(295, 570, 'hat').setScale(0.3).setInteractive({ draggable: true });
+
+        this.input.setDraggable([dress1, dress2, hat]);
+
+        this.input.on('drag', (pointer, gameObject, dragX, dragY) => {
+            gameObject.x = dragX;
+            gameObject.y = dragY;
+        });
+    }
+</script>
+</body>
+</html>
