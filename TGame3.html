@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Realistic Space Forest</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; }
+        canvas { display: block; }
+        #info { /* הסתרתי כי הטקסטורות הן העיקר */
+            display: none;
+            /* position: absolute; top: 10px; left: 10px; color: white; ... */
+        }
+         #loading {
+             position: absolute;
+             top: 50%;
+             left: 50%;
+             transform: translate(-50%, -50%);
+             color: white;
+             font-size: 20px;
+             font-family: sans-serif;
+             background-color: rgba(0,0,0,0.7);
+             padding: 15px;
+             border-radius: 5px;
+             display: none; /* יופעל ב-JS */
+             z-index: 100;
+         }
+    </style>
+</head>
+<body>
+    <!-- **** הערה: יש להריץ משרת מקומי ולספק את קבצי התמונה הנדרשים! **** -->
+    <div id="loading">טוען טקסטורות...</div>
+    <div id="info">Realistic Space Forest</div>
+    <canvas id="backgroundCanvas"></canvas>
+
+    <!-- Import Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        let scene, camera, renderer;
+        let galaxySphere, foregroundStars;
+        let spaceTrees = [];
+        let clock;
+        let textureLoader; // טוען טקסטורות
+        let loadingManager; // לניהול טעינה
+        let loadingElement;
+
+        // --- טקסטורות שנטען מראש ---
+        let galaxyTexture = null;
+        let barkTexture = null;
+        let barkNormalMap = null;
+        let leafTexture = null;
+
+        // --- אתחול ---
+        function init() {
+            loadingElement = document.getElementById('loading');
+            loadingElement.style.display = 'block'; // הצג הודעת טעינה
+
+            setupLoadingManager(); // הגדר מנהל טעינה *לפני* טעינת טקסטורות
+
+            scene = new THREE.Scene();
+            clock = new THREE.Clock();
+            textureLoader = new THREE.TextureLoader(loadingManager); // השתמש במנהל
+
+            const aspect = window.innerWidth / window.innerHeight;
+            camera = new THREE.PerspectiveCamera(65, aspect, 0.1, 5000); // שדה ראייה מעט קטן יותר
+            camera.position.set(0, 15, 80); // מיקום מצלמה
+            camera.lookAt(0, 10, 0); // הסתכל מעט למטה
+
+            const canvas = document.getElementById('backgroundCanvas');
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.toneMapping = THREE.ACESFilmicToneMapping; // לשיפור מראה תאורה וצבעים
+            renderer.outputColorSpace = THREE.SRGBColorSpace; // מרחב צבע נכון
+
+            // טען טקסטורות (הטעינה תתחיל כאן)
+            loadTextures();
+
+            // הפונקציה onLoadingComplete (שנקראת ע"י loadingManager) תיצור את שאר הסצנה
+        }
+
+        // --- הגדרת מנהל טעינה ---
+        function setupLoadingManager() {
+            loadingManager = new THREE.LoadingManager();
+
+            loadingManager.onStart = (url, itemsLoaded, itemsTotal) => {
+                console.log(`Started loading file: ${url}.\nLoaded ${itemsLoaded} of ${itemsTotal} files.`);
+                loadingElement.innerText = `טוען קובץ ${itemsLoaded + 1} מתוך ${itemsTotal}...`;
+            };
+
+            loadingManager.onLoad = () => {
+                console.log('Loading complete!');
+                loadingElement.style.display = 'none'; // הסתר הודעת טעינה
+                // --- כל הטקסטורות נטענו - אפשר לבנות את הסצנה ---
+                createSceneContent();
+                animate(); // התחל אנימציה רק אחרי שהכל מוכן
+            };
+
+            loadingManager.onProgress = (url, itemsLoaded, itemsTotal) => {
+                console.log(`Loading file: ${url}.\nLoaded ${itemsLoaded} of ${itemsTotal} files.`);
+                loadingElement.innerText = `טוען: ${url.split('/').pop()} (${itemsLoaded}/${itemsTotal})`;
+                 const progress = (itemsLoaded / itemsTotal) * 100;
+                 // אפשר להוסיף כאן progress bar אם רוצים
+            };
+
+            loadingManager.onError = (url) => {
+                console.error('There was an error loading ' + url);
+                loadingElement.innerText = `שגיאה בטעינת ${url}! ודא שהקובץ קיים.`;
+                 loadingElement.style.color = 'red';
+            };
+        }
+
+        // --- טעינת טקסטורות ---
+        function loadTextures() {
+            console.log("Requesting textures...");
+            // ** החלף בשמות הקבצים האמיתיים שלך אם הם שונים **
+            galaxyTexture = textureLoader.load('galaxy_skybox.jpg', (tex) => {
+                 tex.colorSpace = THREE.SRGBColorSpace; // חשוב לתצוגה נכונה של הצבעים
+                 console.log("Galaxy texture loaded assign");
+             });
+            barkTexture = textureLoader.load('bark.jpg', (tex) => {
+                 tex.colorSpace = THREE.SRGBColorSpace;
+                 tex.wrapS = tex.wrapT = THREE.RepeatWrapping; // לאפשר חזרה על הטקסטורה
+                 console.log("Bark texture loaded assign");
+             });
+            barkNormalMap = textureLoader.load('bark_normal.jpg', () => console.log("Bark normal map loaded assign"));
+            leafTexture = textureLoader.load('leaf_particle.png', () => console.log("Leaf particle texture loaded assign")); // קובץ PNG עם שקיפות
+            console.log("Texture load requests sent.");
+        }
+
+
+        // --- יצירת תוכן הסצנה (אחרי טעינת טקסטורות) ---
+        function createSceneContent() {
+            console.log("Creating scene content...");
+            // תאורה משופרת
+            const ambientLight = new THREE.AmbientLight(0x607090, 0.4); // אור סביבה כחלחל-אפרפר
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight(0xffeedd, 1.5); // אור "שמש" רחוק, חם
+            sunLight.position.set(100, 150, 150);
+            // sunLight.castShadow = true; // אפשר להפעיל צללים אם רוצים (יכביד)
+            scene.add(sunLight);
+
+             const fillLight = new THREE.DirectionalLight(0x80a0ff, 0.5); // אור מילוי כחלחל מהצד השני
+             fillLight.position.set(-100, 50, -100);
+             scene.add(fillLight);
+
+             const bottomGlow = new THREE.PointLight(0x40ff80, 1.0, 300, 1.8); // זוהר ירקרק מלמטה
+             bottomGlow.position.set(0, -50, 0);
+             scene.add(bottomGlow);
+
+            // יצירת רקע וסביבה
+            createGalaxyBackgroundV3();
+            createForegroundStars(); // כוכבים קרובים יותר
+
+            // יצירת העצים
+            createSpaceTreesV3(); // השתמש בטקסטורות שנטענו
+
+            console.log("Scene content created.");
+        }
+
+
+        // --- שכבה רחוקה: Skybox עם טקסטורת גלקסיה ---
+        function createGalaxyBackgroundV3() {
+             if (!galaxyTexture) {
+                 console.error("Galaxy texture not loaded!");
+                 return;
+             }
+            const sphereRadius = 3000; // גדול מאוד
+            const geometry = new THREE.SphereGeometry(sphereRadius, 60, 40);
+            // הפוך את הפאות כדי שהטקסטורה תהיה בפנים
+            geometry.scale(-1, 1, 1);
+
+            const material = new THREE.MeshBasicMaterial({
+                map: galaxyTexture,
+                // side: THREE.BackSide // לא נחוץ כי הפכנו את הגיאומטריה
+            });
+
+            galaxySphere = new THREE.Mesh(geometry, material);
+             galaxySphere.rotation.y = Math.PI / 2; // סובב את הגלקסיה אם צריך להתאים
+            scene.add(galaxySphere);
+            console.log("Galaxy sphere created.");
+        }
+
+        // --- שכבה נוספת: כוכבים בהירים קדמיים ---
+        function createForegroundStars() {
+            const starCount = 1000; // פחות כוכבים, אך בהירים יותר
+            const positions = new Float32Array(starCount * 3);
+            const colors = new Float32Array(starCount * 3);
+            const sizes = new Float32Array(starCount);
+            const color = new THREE.Color();
+
+             for (let i = 0; i < starCount; i++) {
+                 const i3 = i * 3;
+                 // מיקום רנדומלי בקופסה קרובה יותר (אך מחוץ לאזור העצים)
+                 positions[i3] = (Math.random() - 0.5) * 800; // X
+                 positions[i3 + 1] = (Math.random() - 0.5) * 500 + 50; // Y (מעל/מתחת לקו האופק)
+                 positions[i3 + 2] = (Math.random() - 0.5) * 800 - 150; // Z (בעיקר לפני העצים)
+
+                 // צבע: בעיקר לבן בהיר, מעט כחלחל/צהבהב
+                 color.setHSL(Math.random() * 0.1 + 0.6, 0.9, Math.random() * 0.2 + 0.75);
+                 colors[i3] = color.r; colors[i3 + 1] = color.g; colors[i3 + 2] = color.b;
+
+                 sizes[i] = Math.random() * 2.5 + 1.0; // גדלים משתנים
+             }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1)); // Attribute לגודל
+
+            const material = new THREE.PointsMaterial({
+                 // size: 2.0, // גודל בסיס (יוכפל/יוחלף ע"י ה-attribute)
+                 vertexColors: true,
+                 blending: THREE.AdditiveBlending,
+                 depthWrite: false,
+                 transparent: true,
+                 opacity: 0.9,
+                 sizeAttenuation: true // כוכבים רחוקים ייראו קטנים יותר
+             });
+
+            foregroundStars = new THREE.Points(geometry, material);
+            scene.add(foregroundStars);
+            console.log("Foreground stars created.");
+        }
+
+
+        // --- שכבה 3: עצי חלל "אמיתיים" ---
+        function createSpaceTreesV3() {
+            if (!barkTexture || !barkNormalMap || !leafTexture) {
+                console.error("Required tree textures not loaded!");
+                return;
+            }
+
+            const treeCount = 35; // אפשר פחות עצים כי הם מפורטים יותר
+            const treeAreaWidth = 250;
+            const treeAreaDepth = 200;
+            const baseZ = -80;
+
+            console.log("Creating realistic space trees...");
+            for (let i = 0; i < treeCount; i++) {
+                const treeGroup = new THREE.Group();
+
+                // הגדרות עץ
+                const trunkHeight = 20 + Math.random() * 35;
+                const trunkRadius = 0.8 + Math.random() * 1.2;
+                const foliageDensityFactor = 0.8 + Math.random() * 0.7; // כמה עלים
+                const foliageColor = new THREE.Color().setHSL(
+                    Math.random() * 0.4 + 0.25, // ירוק-טורקיז-כחול-סגול
+                    0.6 + Math.random() * 0.3,
+                    0.55 + Math.random() * 0.2
+                );
+                const foliageShapeFactor = 0.7 + Math.random() * 0.6; // כמה הצמרת רחבה/גבוהה
+
+                // --- גזע עם טקסטורה ---
+                const trunkGeometry = new THREE.CylinderGeometry(
+                    trunkRadius * (0.6 + Math.random()*0.3), trunkRadius,
+                    trunkHeight, 12, 5);
+                 trunkGeometry.rotateX((Math.random() - 0.5) * 0.08); // הטיה קלה
+                 trunkGeometry.rotateZ((Math.random() - 0.5) * 0.08);
+
+                const trunkMaterial = new THREE.MeshStandardMaterial({
+                    map: barkTexture,
+                    normalMap: barkNormalMap,
+                    normalScale: new THREE.Vector2(0.6, 0.6), // עוצמת הנורמל מפה
+                    roughness: 0.9,
+                    metalness: 0.1,
+                    color: 0xcccccc, // צבע בסיס בהיר יחסית כדי שהטקסטורה תשפיע
+                    // אפשר להוסיף זוהר קל מהבסיס
+                    // emissive: foliageColor,
+                    // emissiveIntensity: 0.03
+                });
+                const trunkMesh = new THREE.Mesh(trunkGeometry, trunkMaterial);
+                trunkMesh.position.y = trunkHeight / 2;
+                 // trunkMesh.castShadow = true; // אם הפעלת צללים
+                 // trunkMesh.receiveShadow = true;
+                treeGroup.add(trunkMesh);
+
+                // --- עלווה (Leaf Billboards) ---
+                const foliageParticleCount = Math.floor(150 * foliageDensityFactor * (trunkHeight/25));
+                const foliagePositions = new Float32Array(foliageParticleCount * 3);
+                const foliageColors = new Float32Array(foliageParticleCount * 3); // לשליטה בצבע הזוהר
+
+                const foliageHeight = trunkHeight * (0.7 * foliageShapeFactor);
+                const foliageRadius = trunkRadius * (6 * foliageShapeFactor);
+
+                for (let j = 0; j < foliageParticleCount; j++) {
+                     const j3 = j * 3;
+                     // מיקום בצורת קונוס הפוך או אליפסואיד
+                     const hRatio = Math.random(); // 0 עד 1
+                     const currentRadius = foliageRadius * Math.pow(1 - hRatio, 0.6); // רחב למטה, צר למעלה
+                     const currentHeight = foliageHeight * hRatio;
+
+                     const angle = Math.random() * Math.PI * 2;
+
+                     foliagePositions[j3] = currentRadius * Math.cos(angle) * (0.8 + Math.random()*0.4); // פיזור רדיאלי
+                     foliagePositions[j3 + 1] = currentHeight * (0.8 + Math.random()*0.4); // פיזור גובה
+                     foliagePositions[j3 + 2] = currentRadius * Math.sin(angle) * (0.8 + Math.random()*0.4);
+
+                    // צבע זוהר משתנה קלות
+                     const particleColor = foliageColor.clone().offsetHSL(
+                         (Math.random() - 0.5) * 0.05,
+                         (Math.random() - 0.5) * 0.1,
+                         (Math.random() - 0.5) * 0.2
+                     );
+                     foliageColors[j3] = particleColor.r;
+                     foliageColors[j3 + 1] = particleColor.g;
+                     foliageColors[j3 + 2] = particleColor.b;
+                 }
+
+                const foliageGeometry = new THREE.BufferGeometry();
+                foliageGeometry.setAttribute('position', new THREE.BufferAttribute(foliagePositions, 3));
+                foliageGeometry.setAttribute('color', new THREE.BufferAttribute(foliageColors, 3));
+
+                const foliageMaterial = new THREE.PointsMaterial({
+                    map: leafTexture,
+                    size: trunkRadius * (1.5 + Math.random() * 1.5), // גודל העלים יחסי לגזע
+                    vertexColors: true, // צבע שנקבע ישפיע על הזוהר
+                    blending: THREE.AdditiveBlending, // אפקט זוהר
+                    depthWrite: false, // חשוב לשקיפות ומיזוג
+                    transparent: true, // הטקסטורה צריכה אלפא
+                    sizeAttenuation: true,
+                     alphaTest: 0.1 // סף שקיפות (כוונן לפי טקסטורת העלים)
+                });
+
+                const foliagePoints = new THREE.Points(foliageGeometry, foliageMaterial);
+                foliagePoints.position.y = trunkHeight * 0.3; // מקם את בסיס העלווה נמוך יותר על הגזע
+                treeGroup.add(foliagePoints);
+
+                // --- מיקום סופי ונתונים ---
+                 treeGroup.position.set(
+                     (Math.random() - 0.5) * treeAreaWidth,
+                     -trunkHeight * 0.1, // שקע מעט את בסיס הגזע
+                     baseZ - Math.random() * treeAreaDepth
+                 );
+                treeGroup.rotation.y = Math.random() * Math.PI * 2;
+                treeGroup.scale.setScalar(0.9 + Math.random() * 0.3);
+
+                treeGroup.userData.swaySpeed = Math.random() * 0.3 + 0.05;
+                treeGroup.userData.swayAmount = (Math.random() - 0.5) * 0.04;
+                treeGroup.userData.baseRotationZ = (Math.random() - 0.5) * 0.03;
+                treeGroup.rotation.z = treeGroup.userData.baseRotationZ;
+
+                scene.add(treeGroup);
+                spaceTrees.push(treeGroup);
+            }
+            console.log(`${treeCount} realistic space trees created.`);
+        }
+
+        // --- לולאת אנימציה ---
+        function animate() {
+            // requestAnimationFrame(animate); // יקרא שוב מתוך מנהל הטעינה בפעם הראשונה
+            requestAnimationFrame(animate); // קריאה רקורסיבית להמשך האנימציה
+
+            const delta = clock.getDelta();
+            const elapsedTime = clock.getElapsedTime();
+
+            // סיבוב איטי של הגלקסיה
+            if (galaxySphere) {
+                galaxySphere.rotation.y += delta * 0.0015;
+            }
+            // סיבוב מהיר יותר של הכוכבים הקדמיים (פרלקסה)
+            if (foregroundStars) {
+                 foregroundStars.rotation.y += delta * 0.008;
+                 foregroundStars.rotation.x -= delta * 0.003;
+             }
+
+            // אנימציית עצים
+            spaceTrees.forEach(treeGroup => {
+                treeGroup.rotation.z = treeGroup.userData.baseRotationZ + Math.sin(elapsedTime * treeGroup.userData.swaySpeed) * treeGroup.userData.swayAmount;
+                 // אפשר להוסיף אנימציה עדינה גם לעלווה עצמה אם רוצים (יותר מורכב)
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        // --- טיפול בשינוי גודל החלון ---
+        function onWindowResize() {
+             const aspect = window.innerWidth / window.innerHeight;
+             camera.aspect = aspect;
+             camera.updateProjectionMatrix();
+             renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+         // --- התחלה ---
+         window.addEventListener('resize', onWindowResize); // הוסף את המאזין תמיד
+         if (typeof THREE !== 'undefined' && THREE.WebGLRenderer) {
+             init(); // התחל את תהליך האתחול והטעינה
+         } else {
+             document.getElementById('loading').style.display = 'block';
+             document.getElementById('loading').innerText = 'שגיאה: דרוש דפדפן תומך WebGL וטעינת Three.js!';
+             document.getElementById('loading').style.color = 'red';
+             console.error("WebGL or Three.js not supported!");
+         }
+
+    </script>
+</body>
+</html>
