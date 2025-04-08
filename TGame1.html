@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Galaxy Cat Collector</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; }
+        canvas { display: block; }
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 24px;
+            font-family: sans-serif;
+            text-shadow: 1px 1px 2px black;
+        }
+        #instructions {
+             position: absolute;
+             bottom: 10px;
+             left: 10px;
+             color: white;
+             font-size: 14px;
+             font-family: sans-serif;
+             text-shadow: 1px 1px 2px black;
+         }
+    </style>
+</head>
+<body>
+    <div id="score">Score: 0</div>
+    <div id="instructions">Use Arrow Keys or WASD to move the cat</div>
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Import Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // --- הגדרות ומשתנים גלובליים ---
+        let scene, camera, renderer;
+        let catSprite, galaxyParticles;
+        let stars = [];
+        const starCount = 20; // מספר כוכבים בו זמנית
+        let score = 0;
+        let scoreElement;
+        let clock;
+        let keysPressed = {};
+        const catSpeed = 15.0; // מהירות החתול
+        const starSpeed = 5.0; // מהירות מקסימלית לכוכבים
+        const worldBounds = { width: 40, height: 25 }; // גבולות עולם המשחק הווירטואלי
+        const starCollectDistance = 1.5; // מרחק איסוף כוכב
+
+        // --- אתחול ---
+        function init() {
+            // סצנה
+            scene = new THREE.Scene();
+
+            // מצלמה (אורתוגרפית מתאימה יותר למשחק 2.5D כזה)
+            const aspect = window.innerWidth / window.innerHeight;
+            const frustumSize = worldBounds.height; // גובה ה"עולם" הנראה
+            camera = new THREE.OrthographicCamera(
+                frustumSize * aspect / -2, // left
+                frustumSize * aspect / 2,  // right
+                frustumSize / 2,           // top
+                frustumSize / -2,          // bottom
+                1,                         // near
+                1000                       // far
+            );
+            camera.position.z = 10; // מיקום המצלמה על ציר העומק
+
+            // Renderer
+            const canvas = document.getElementById('gameCanvas');
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            // שעון
+            clock = new THREE.Clock();
+
+            // אלמנט ניקוד
+            scoreElement = document.getElementById('score');
+
+            // יצירת רקע גלקסיה
+            createGalaxyBackground();
+
+            // יצירת החתול
+            createCat();
+
+            // יצירת כוכבים ראשוניים
+            for (let i = 0; i < starCount; i++) {
+                createStar();
+            }
+
+            // תאורה בסיסית (כדי שחומרים סטנדרטיים ייראו)
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+            const pointLight = new THREE.PointLight(0xffffff, 0.5);
+            pointLight.position.set(0, 0, 20);
+            scene.add(pointLight);
+
+            // מאזיני אירועים
+            document.addEventListener('keydown', handleKeyDown);
+            document.addEventListener('keyup', handleKeyUp);
+            window.addEventListener('resize', onWindowResize);
+
+            // התחלת לולאת האנימציה
+            animate();
+        }
+
+        // --- יצירת רקע גלקסיה (חלקיקים) ---
+        function createGalaxyBackground() {
+            const particleCount = 10000;
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+            const color = new THREE.Color();
+
+            for (let i = 0; i < particleCount; i++) {
+                const i3 = i * 3;
+                // מיקום אקראי בקופסה גדולה
+                positions[i3] = (Math.random() - 0.5) * 200; // X
+                positions[i3 + 1] = (Math.random() - 0.5) * 200; // Y
+                positions[i3 + 2] = (Math.random() - 0.5) * 100 - 50; // Z (יותר מאחור)
+
+                // צבע אקראי (לבן עם שינויים קלים)
+                color.setHSL(Math.random() * 0.1 + 0.9, 0.1, Math.random() * 0.5 + 0.5);
+                colors[i3] = color.r;
+                colors[i3 + 1] = color.g;
+                colors[i3 + 2] = color.b;
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.2,
+                vertexColors: true, // השתמש בצבעים שהגדרנו לכל נקודה
+                blending: THREE.AdditiveBlending, // אפקט זוהר כשחלקיקים חופפים
+                depthWrite: false, // כדי שלא יסתירו דברים מאחוריהם בצורה מוזרה
+                transparent: true
+            });
+
+            galaxyParticles = new THREE.Points(geometry, material);
+            scene.add(galaxyParticles);
+        }
+
+        // --- יצירת החתול (Sprite) ---
+        function createCat() {
+            const textureLoader = new THREE.TextureLoader();
+            // !!! החלף את ה-URL בתמונה משלך או בשם קובץ מקומי (ראה הערה למעלה) !!!
+            const catTexture = textureLoader.load(
+                'https://www.shutterstock.com/image-vector/cat-head-peeking-out-around-600nw-2462109067.jpg',
+                () => { console.log("Cat texture loaded!"); }, // הצלחה
+                undefined, // התקדמות (לא נחוץ כאן)
+                (err) => { console.error('Error loading cat texture:', err); } // שגיאה
+            );
+
+            const catMaterial = new THREE.SpriteMaterial({
+                map: catTexture,
+                color: 0xffffff, // השאר לבן כדי להשתמש בצבעי התמונה
+                rotation: 0, // סיבוב אם צריך
+             });
+            catSprite = new THREE.Sprite(catMaterial);
+            catSprite.scale.set(3, 3, 1); // גודל החתול
+            catSprite.position.set(0, 0, 1); // מקם קצת קדימה מהרקע
+            scene.add(catSprite);
+        }
+
+        // --- יצירת כוכב ---
+        function createStar(isRespawn = false) {
+            const geometry = new THREE.SphereGeometry(0.5, 16, 8); // כדור קטן
+            const material = new THREE.MeshStandardMaterial({
+                color: new THREE.Color().setHSL(Math.random(), 0.8, 0.6), // צבע אקראי ובוהק
+                emissive: new THREE.Color().setHSL(Math.random(), 0.7, 0.3), // צבע פולט אור קל
+                roughness: 0.5,
+                metalness: 0.3
+            });
+            const star = new THREE.Mesh(geometry, material);
+
+            // מיקום אקראי התחלתי (בגבולות העולם)
+            // אם זה respawn, אפשר למקם מחוץ למסך כדי שייכנס פנימה
+             const edgeMargin = 5; // שוליים מחוץ למסך ל-respawn
+             const spawnWidth = worldBounds.width / 2 + (isRespawn ? edgeMargin : 0);
+             const spawnHeight = worldBounds.height / 2 + (isRespawn ? edgeMargin : 0);
+             star.position.x = (Math.random() - 0.5) * 2 * spawnWidth;
+             star.position.y = (Math.random() - 0.5) * 2 * spawnHeight;
+             star.position.z = 0; // באותה רמה כמו החתול
+
+            // מהירות אקראית התחלתית
+            star.userData.velocity = new THREE.Vector2(
+                (Math.random() - 0.5) * starSpeed,
+                (Math.random() - 0.5) * starSpeed
+            );
+
+            stars.push(star);
+            scene.add(star);
+            return star;
+        }
+
+
+        // --- טיפול במקלדת ---
+        function handleKeyDown(event) {
+            keysPressed[event.key.toLowerCase()] = true;
+            if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd'].includes(event.key.toLowerCase())) {
+                event.preventDefault();
+            }
+        }
+        function handleKeyUp(event) {
+            keysPressed[event.key.toLowerCase()] = false;
+        }
+
+        // --- עדכון תנועת החתול ---
+        function updateCatMovement(deltaTime) {
+             if (!catSprite) return; // ודא שהחתול נטען
+
+             let moveX = 0;
+             let moveY = 0;
+
+             if (keysPressed['a'] || keysPressed['arrowleft']) moveX -= 1;
+             if (keysPressed['d'] || keysPressed['arrowright']) moveX += 1;
+             if (keysPressed['w'] || keysPressed['arrowup']) moveY += 1;
+             if (keysPressed['s'] || keysPressed['arrowdown']) moveY -= 1;
+
+             // חישוב תנועה
+             catSprite.position.x += moveX * catSpeed * deltaTime;
+             catSprite.position.y += moveY * catSpeed * deltaTime;
+
+             // הגבלת תנועה לגבולות העולם
+             const halfWidth = worldBounds.width / 2;
+             const halfHeight = worldBounds.height / 2;
+             catSprite.position.x = Math.max(-halfWidth, Math.min(halfWidth, catSprite.position.x));
+             catSprite.position.y = Math.max(-halfHeight, Math.min(halfHeight, catSprite.position.y));
+        }
+
+        // --- עדכון כוכבים (תנועה וקפיצה) ---
+        function updateStars(deltaTime) {
+            const halfWidth = worldBounds.width / 2;
+            const halfHeight = worldBounds.height / 2;
+
+            stars.forEach(star => {
+                // הזזת הכוכב
+                star.position.x += star.userData.velocity.x * deltaTime;
+                star.position.y += star.userData.velocity.y * deltaTime;
+
+                // בדיקת קפיצה מהקצוות
+                if (star.position.x > halfWidth || star.position.x < -halfWidth) {
+                    star.userData.velocity.x *= -1; // הפוך כיוון אופקי
+                    star.position.x = Math.sign(star.position.x) * halfWidth; // החזר לגבול
+                }
+                 if (star.position.y > halfHeight || star.position.y < -halfHeight) {
+                    star.userData.velocity.y *= -1; // הפוך כיוון אנכי
+                     star.position.y = Math.sign(star.position.y) * halfHeight; // החזר לגבול
+                }
+
+                 // אפשר להוסיף סיבוב קל לכוכבים
+                 star.rotation.x += 0.5 * deltaTime;
+                 star.rotation.y += 0.5 * deltaTime;
+            });
+        }
+
+        // --- בדיקת התנגשויות ואיסוף ---
+        function checkCollisions() {
+            if (!catSprite) return; // ודא שהחתול קיים
+
+            const catPos = catSprite.position;
+            for (let i = stars.length - 1; i >= 0; i--) {
+                const star = stars[i];
+                const distance = catPos.distanceTo(star.position);
+
+                if (distance < starCollectDistance) {
+                    // איסוף!
+                    score++;
+                    updateScore();
+
+                    // הסרת הכוכב מהסצנה ומהמערך
+                    scene.remove(star);
+                    stars.splice(i, 1);
+
+                    // יצירת כוכב חדש במקום זה שנאסף
+                    createStar(true); // isRespawn = true
+                }
+            }
+        }
+
+        // --- עדכון תצוגת הניקוד ---
+        function updateScore() {
+            scoreElement.innerText = `Score: ${score}`;
+        }
+
+        // --- סיבוב רקע הגלקסיה ---
+        function rotateGalaxy(deltaTime) {
+             if (galaxyParticles) {
+                 // סיבוב קל של כל מערכת החלקיקים
+                 galaxyParticles.rotation.z += deltaTime * 0.02;
+                 // אפשר גם לסובב בצירים אחרים לתחושת עומק
+                 // galaxyParticles.rotation.x += deltaTime * 0.01;
+             }
+        }
+
+
+        // --- לולאת אנימציה ראשית ---
+        function animate() {
+            requestAnimationFrame(animate);
+            const deltaTime = clock.getDelta();
+
+            // עדכונים
+            updateCatMovement(deltaTime);
+            updateStars(deltaTime);
+            checkCollisions();
+            rotateGalaxy(deltaTime); // סובב את הגלקסיה
+
+            // רינדור
+            renderer.render(scene, camera);
+        }
+
+        // --- טיפול בשינוי גודל החלון ---
+        function onWindowResize() {
+            const aspect = window.innerWidth / window.innerHeight;
+            const frustumSize = worldBounds.height;
+
+            camera.left = frustumSize * aspect / -2;
+            camera.right = frustumSize * aspect / 2;
+            camera.top = frustumSize / 2;
+            camera.bottom = frustumSize / -2;
+            camera.updateProjectionMatrix(); // חשוב לעדכן את המטריצה
+
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- התחלה ---
+        init();
+
+    </script>
+</body>
+</html>
