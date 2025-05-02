@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Magical Pets – Three.js Demo</title>
+<style>
+body { margin:0; overflow:hidden;}
+#ui { position:absolute; top:10px; left:10px; z-index:10; background:#ffffffcc; padding:10px; border-radius:8px; font-family:sans-serif;}
+button, select { font-size:1rem; }
+</style>
+</head>
+<body>
+<div id="ui">
+  <select id="petSelect">
+    <option value="unicorn">Unicorn</option>
+    <option value="dragon">Dragon</option>
+  </select>
+  <button id="feedBtn">Feed / Evolve</button>
+  <span id="stageLabel"></span>
+</div>
+<script type="module" src="main.js"></script>
+</body>
+</html>

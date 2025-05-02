@@ -1,0 +1,9 @@
+{
+  "geometry": "sphere",
+  "size": [
+    0.8
+  ],
+  "color": "#cc5500",
+  "stageName": "Dragon Egg",
+  "positionY": 0.5
+}

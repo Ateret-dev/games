@@ -1,0 +1,10 @@
+{
+  "geometry": "cone",
+  "size": [
+    1.2,
+    2.2
+  ],
+  "color": "#44aa44",
+  "stageName": "Teen Dragon",
+  "positionY": 1.3
+}

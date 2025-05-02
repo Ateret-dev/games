@@ -1,0 +1,10 @@
+{
+  "geometry": "cone",
+  "size": [
+    1.0,
+    2.5
+  ],
+  "color": "#ffc0cb",
+  "stageName": "Adult Unicorn",
+  "positionY": 1.2
+}

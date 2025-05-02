@@ -1,0 +1,11 @@
+{
+  "geometry": "box",
+  "size": [
+    2.0,
+    1.0,
+    3.0
+  ],
+  "color": "#228b22",
+  "stageName": "Adult Dragon",
+  "positionY": 1.5
+}

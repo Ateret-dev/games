@@ -1,0 +1,11 @@
+{
+  "geometry": "box",
+  "size": [
+    1.2,
+    0.8,
+    2
+  ],
+  "color": "#ffccff",
+  "stageName": "Baby Unicorn",
+  "positionY": 0.9
+}

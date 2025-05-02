@@ -1,0 +1,11 @@
+{
+  "geometry": "cylinder",
+  "size": [
+    0.6,
+    0.6,
+    1.4
+  ],
+  "color": "#77dd77",
+  "stageName": "Baby Dragon",
+  "positionY": 0.7
+}
