@@ -1,22 +1,28 @@
-Magical Pets – Three.js Demo
-============================
+Magical Pets – Three.js Demo (Majestic Unicorn Edition)
+======================================================
 
-איך מריצים?
-------------
-1. פתחו שרת מקומי (למשל עם `npx serve` או `python -m http.server`) בתיקיית `magical_pets_game`.
-2. גשו לכתובת http://localhost:8000 (או הפורט שיוצג).
-3. בחרו חיית מחמד (Unicorn / Dragon) ולחצו Feed כדי לפתח אותה בין שלבי Egg → Hatchling → Adult.
+Quick Run
+---------
+1. Start a local static server in `magical_pets_game_magic`, e.g.:
 
-איך זה בנוי?
-------------
-* `index.html` – עמוד HTML בסיסי עם תפריט בחירה וכפתור Feed.
-* `main.js` – קוד Three.js שטוען קבצי JSON ומחיל לוגיקה בסיסית.
-* `data/*.json` – תיאור כל שלב של החיה בפורמט JSON.
+   ```bash
+   cd magical_pets_game_magic
+   python -m http.server 8000
+   ```
 
-הרחבות אפשריות
----------------
-* הוסיפו עוד שלבים ע"י יצירת קבצי JSON נוספים ועדכון המערך `stages` ב־main.js.
-* שלבו טקסטורות, סאונד ופיזיקה.
-* כתבו לוגיקה מתקדמת (לדוגמה נקודות ניסיון, אויבים, משימות).
+2. Visit http://localhost:8000
+3. Choose *Unicorn* or *Dragon*. Press **Feed/Evolve** to progress through stages:
+   Egg → Hatchling → Teen → Adult.
 
-2025‑05‑02: Added TEEN stage for Unicorn and Dragon (unicorn_teen.json, dragon_teen.json) and updated main.js.
+What's New
+----------
+* Unicorn stages now use *multi‑part JSON* for a far more detailed, magical look.
+* `main.js` automatically detects a `parts` array and builds a `THREE.Group`
+  combining body, head, horn, ears, legs, and tail.
+* Backwards‑compatible: Dragon JSON remains the simple single‑geometry schema.
+
+Extend It!
+----------
+* Add wings: create `geometry:"cone"` parts and position/rotate on the body.
+* Colorful mane: add small `sphere` parts along the neck in rainbow colors!
+* New pets: copy these JSON templates and adjust as needed (phoenix, griffin, etc.).

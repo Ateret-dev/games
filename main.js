@@ -13,7 +13,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xbfe3ff);
 
 const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.1, 100);
-camera.position.set(0, 1.5, 4);
+camera.position.set(0, 1.8, 5);
 
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(innerWidth, innerHeight);
@@ -25,26 +25,42 @@ scene.add(light);
 scene.add(new THREE.AmbientLight(0xffffff, 0.4));
 
 function createGeometry(cfg){
-  let geom;
   switch(cfg.geometry){
-    case 'box':      geom = new THREE.BoxGeometry(...cfg.size); break;
-    case 'sphere':   geom = new THREE.SphereGeometry(cfg.size[0], 32, 32); break;
-    case 'cone':     geom = new THREE.ConeGeometry(cfg.size[0], cfg.size[1], 32); break;
-    case 'cylinder': geom = new THREE.CylinderGeometry(cfg.size[0], cfg.size[1], cfg.size[2], 32); break;
-    default: geom = new THREE.BoxGeometry(1,1,1);
+    case 'box':      return new THREE.BoxGeometry(...cfg.size);
+    case 'sphere':   return new THREE.SphereGeometry(cfg.size[0], 32, 32);
+    case 'cone':     return new THREE.ConeGeometry(cfg.size[0], cfg.size[1], 32);
+    case 'cylinder': return new THREE.CylinderGeometry(cfg.size[0], cfg.size[1], cfg.size[2], 32);
+    default:         return new THREE.BoxGeometry(1,1,1);
   }
-  return geom;
 }
 
 function loadStage(){
   fetch(`data/${currentPet}_${stages[currentStageIndex]}.json`)
     .then(r=>r.json())
     .then(cfg=>{
-      if(mesh){ scene.remove(mesh); mesh.geometry.dispose(); mesh.material.dispose();}
-      const geom = createGeometry(cfg);
-      const mat = new THREE.MeshStandardMaterial({color: cfg.color});
-      mesh = new THREE.Mesh(geom, mat);
-      mesh.position.y = cfg.positionY || 0;
+      if(mesh){
+        scene.remove(mesh);
+        mesh.traverse?.(n=>{ if(n.isMesh){ n.geometry.dispose(); n.material.dispose(); }});
+      }
+
+      if(cfg.parts){
+        const group = new THREE.Group();
+        cfg.parts.forEach(p=>{
+          const geom = createGeometry(p);
+          const mat  = new THREE.MeshStandardMaterial({color: p.color});
+          const m    = new THREE.Mesh(geom, mat);
+          if(p.position) m.position.set(...p.position);
+          if(p.rotation) m.rotation.set(...p.rotation);
+          group.add(m);
+        });
+        mesh = group;
+      } else {
+        const geom = createGeometry(cfg);
+        const mat  = new THREE.MeshStandardMaterial({color: cfg.color});
+        mesh = new THREE.Mesh(geom, mat);
+        mesh.position.y = cfg.positionY || 0;
+      }
+
       scene.add(mesh);
       stageLabel.textContent = `Stage: ${cfg.stageName}`;
     });
@@ -73,9 +89,7 @@ window.addEventListener('resize', ()=>{
 
 function animate(){
   requestAnimationFrame(animate);
-  if(mesh){
-    mesh.rotation.y += 0.005;
-  }
+  if(mesh) mesh.rotation.y += 0.003;
   renderer.render(scene, camera);
 }
 loadStage();

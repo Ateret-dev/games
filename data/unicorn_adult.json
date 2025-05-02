@@ -1,10 +1,164 @@
 {
-  "geometry": "cone",
-  "size": [
-    1.0,
-    2.5
-  ],
-  "color": "#ffc0cb",
   "stageName": "Adult Unicorn",
-  "positionY": 1.2
+  "parts": [
+    {
+      "geometry": "cylinder",
+      "size": [
+        0.8,
+        0.8,
+        2.5
+      ],
+      "color": "#ffffff",
+      "position": [
+        0,
+        1.25,
+        0
+      ],
+      "rotation": [
+        1.5707963267948966,
+        0,
+        0
+      ]
+    },
+    {
+      "geometry": "sphere",
+      "size": [
+        0.55
+      ],
+      "color": "#ffffff",
+      "position": [
+        0,
+        2.0,
+        1.4
+      ]
+    },
+    {
+      "geometry": "cone",
+      "size": [
+        0.1,
+        0.7
+      ],
+      "color": "#ffd700",
+      "position": [
+        0,
+        2.35,
+        1.8
+      ],
+      "rotation": [
+        -0.35,
+        0,
+        0
+      ]
+    },
+    {
+      "geometry": "cone",
+      "size": [
+        0.12,
+        0.3
+      ],
+      "color": "#ffccff",
+      "position": [
+        0.25,
+        2.15,
+        1.45
+      ],
+      "rotation": [
+        -0.2,
+        0.2,
+        0
+      ]
+    },
+    {
+      "geometry": "cone",
+      "size": [
+        0.12,
+        0.3
+      ],
+      "color": "#ffccff",
+      "position": [
+        -0.25,
+        2.15,
+        1.45
+      ],
+      "rotation": [
+        -0.2,
+        -0.2,
+        0
+      ]
+    },
+    {
+      "geometry": "cylinder",
+      "size": [
+        0.15,
+        0.15,
+        1.0
+      ],
+      "color": "#ffffff",
+      "position": [
+        -0.35,
+        0.5,
+        0.9
+      ]
+    },
+    {
+      "geometry": "cylinder",
+      "size": [
+        0.15,
+        0.15,
+        1.0
+      ],
+      "color": "#ffffff",
+      "position": [
+        0.35,
+        0.5,
+        0.9
+      ]
+    },
+    {
+      "geometry": "cylinder",
+      "size": [
+        0.15,
+        0.15,
+        1.0
+      ],
+      "color": "#ffffff",
+      "position": [
+        -0.35,
+        0.5,
+        -0.9
+      ]
+    },
+    {
+      "geometry": "cylinder",
+      "size": [
+        0.15,
+        0.15,
+        1.0
+      ],
+      "color": "#ffffff",
+      "position": [
+        0.35,
+        0.5,
+        -0.9
+      ]
+    },
+    {
+      "geometry": "cone",
+      "size": [
+        0.2,
+        0.8
+      ],
+      "color": "#ff99ff",
+      "position": [
+        0,
+        1.2,
+        -1.5
+      ],
+      "rotation": [
+        0.6,
+        0,
+        0
+      ]
+    }
+  ]
 }
